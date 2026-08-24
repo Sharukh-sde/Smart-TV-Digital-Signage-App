@@ -1,0 +1,620 @@
+================================================================================
+  SMARTADDISPLAY — PROJECT SETUP & TECHNICAL GUIDE
+  Last Updated: 2026-04-29  (rev 5 — Batch Upload with Per-File Progress)
+================================================================================
+
+This document is the single source of truth for the SmartAdDisplay project.
+Update this file after every significant architectural change.
+
+────────────────────────────────────────────────────────────────────────────────
+1. PROJECT OVERVIEW
+────────────────────────────────────────────────────────────────────────────────
+
+Purpose
+-------
+SmartAdDisplay is an Android TV Digital Signage application. It plays a
+playlist of MP4 videos in a continuous loop on any Android TV or Fire TV
+device. The playlist is managed remotely via a web-based Admin Panel
+(index.html) — no physical access to the TV is needed to change content.
+
+Use Case
+--------
+  - Digital advertising displays (shops, lobbies, restaurants)
+  - Information boards
+  - Any screen that needs remotely-managed looping video content
+
+Key Behaviours
+--------------
+  - TV fetches the playlist from Firebase Firestore in real time.
+  - Videos are cached locally (500 MB) so playback continues even if the
+    internet connection drops (offline mode).
+  - Admin uploads a new video → TV switches automatically within seconds.
+  - Admin deletes a video → TV removes it from the queue automatically.
+
+Technologies
+------------
+  Component              Library / Service
+  ─────────────────────  ────────────────────────────────────────────────
+  Video playback         AndroidX Media3 ExoPlayer 1.3.0
+  Real-time sync         Firebase Firestore (SnapshotListener)
+  Video file storage     Firebase Storage
+  Admin Panel            Plain HTML + Tailwind CSS + Firebase JS SDK v10
+  Language (Android)     Kotlin
+  Min SDK                21 (Android 5.0 Lollipop)
+  Target / Compile SDK   34 (Android 14)
+  AGP version            8.6.0
+  Gradle version         8.9
+
+  NOTE: Local video caching (SimpleCache) was removed in rev 2 because
+        media3-datasource-cache is not resolvable in this build environment.
+        Playback now streams directly via DefaultDataSource.Factory.
+
+
+────────────────────────────────────────────────────────────────────────────────
+2. FIREBASE CONFIGURATION
+────────────────────────────────────────────────────────────────────────────────
+
+Active Firebase Project
+-----------------------
+  Project Name    : SmartAdDisplay
+  Project ID      : smartaddisplay
+  Previous ID     : tv-3c706  (decommissioned — do not use)
+
+Credentials (used in index.html and google-services.json)
+---------------------------------------------------------
+  apiKey            : AIzaSyDEpL4OIsiF9D4D7-F7L4S1G9YvD4R7A
+  authDomain        : smartaddisplay.firebaseapp.com
+  projectId         : smartaddisplay
+  storageBucket     : smartaddisplay.firebasestorage.app
+  messagingSenderId : 374245781358
+  appId             : 1:374245781358:web:7f4d506691458739665f87
+
+  NOTE: The Android app reads its credentials from
+        app/google-services.json — NOT from any hardcoded Kotlin file.
+        If you switch Firebase projects, replace that file from the
+        Firebase Console (Project Settings → Android App → Download).
+
+Firestore Structure
+-------------------
+  Collection : playlist
+  Document   : (auto-generated ID per video)
+  Fields:
+    url         string    Firebase Storage download URL of the MP4 file
+    name        string    Original filename (e.g. "promo_jan.mp4")
+    timestamp   timestamp Firestore server timestamp — used for ordering
+
+  Example document:
+    {
+      "url"       : "https://firebasestorage.googleapis.com/v0/b/smartaddisplay
+                     .firebasestorage.app/o/videos%2F1714293600000_promo.mp4
+                     ?alt=media&token=abc123",
+      "name"      : "promo_jan.mp4",
+      "timestamp" : Timestamp(seconds=1714293600, nanoseconds=0)
+    }
+
+  Query used by both Admin Panel and TV App:
+    collection("playlist").orderBy("timestamp", ASCENDING)
+
+Storage Structure
+-----------------
+  Bucket  : smartaddisplay.firebasestorage.app
+  Folder  : videos/
+  Naming  : videos/{unix_timestamp_ms}_{original_filename}
+            e.g. videos/1714293600000_promo_jan.mp4
+
+  The timestamp prefix prevents filename collisions when the same file
+  is uploaded multiple times.
+
+
+────────────────────────────────────────────────────────────────────────────────
+3. RECENT CHANGES & LOGIC (CHRONOLOGICAL)
+────────────────────────────────────────────────────────────────────────────────
+
+Step 1 — Initial Project Creation
+----------------------------------
+  - Android TV project scaffolded from scratch in C:\TV\
+  - Package name: com.tv.app (original)
+  - Firebase project: tv-3c706 (original)
+  - Single-video mode: Firestore document 'settings/videoConfig' with one
+    field 'current_video_url'. TV played whichever URL was in that field.
+
+Step 2 — Firebase Project Migration (tv-3c706 → smartaddisplay)
+----------------------------------------------------------------
+  - google-services.json replaced in app/ folder.
+  - index.html firebaseConfig block updated to smartaddisplay credentials.
+  - MainActivity.kt required NO code changes — it reads from google-services.json.
+  - All old 'tv-3c706' strings were verified absent from every source file.
+
+Step 3 — Package Name Change (com.tv.app → com.smartad.display)
+----------------------------------------------------------------
+  Why: The package name must match the 'package_name' field in
+       google-services.json for the Firebase SDK to initialise correctly.
+
+  Files changed:
+    app/build.gradle          namespace + applicationId
+    MainActivity.kt           package declaration (first line)
+    Folder renamed:
+      FROM: app/src/main/java/com/tv/app/
+      TO:   app/src/main/java/com/smartad/display/
+
+  AndroidManifest.xml was NOT changed — it uses ".MainActivity" (dot-relative
+  notation) which automatically resolves against the namespace in build.gradle.
+
+Step 4 — Missing Resources Fixed
+---------------------------------
+  - Entire res/mipmap/ tree was missing → build error "resource not found".
+  - Created XML-based launcher icons (no PNG binary files needed):
+      res/drawable/ic_launcher_background.xml   (dark navy shape)
+      res/drawable/ic_launcher_foreground.xml   (TV + play-button vector)
+      res/mipmap-anydpi-v26/ic_launcher.xml     (adaptive-icon for API 26+)
+      res/mipmap-{mdpi,hdpi,xhdpi,xxhdpi,xxxhdpi}/ic_launcher.xml (legacy)
+  - Created res/drawable/tv_banner.xml (320x180dp TV home screen banner).
+  - Added android:banner="@drawable/tv_banner" to AndroidManifest.xml.
+
+Step 5 — TV + Mobile Dual Launcher Support
+-------------------------------------------
+  - android.software.leanback was required="true" → hid app from all phones.
+  - Changed to required="false" so phones can also install and launch the app.
+  - Both LAUNCHER (phone) and LEANBACK_LAUNCHER (TV) intent-filters are
+    present in the same <activity> tag.
+
+Step 6 — Playlist System (replacing single-video mode)
+-------------------------------------------------------
+  Old architecture:
+    Firestore: settings/videoConfig.current_video_url  (1 URL, overwritten)
+    TV:        Single MediaItem, replaced on each update.
+
+  New architecture:
+    Firestore: playlist collection (N documents, each with url/name/timestamp)
+    TV:        Full ExoPlayer MediaItem queue, rebuilt on each snapshot.
+
+  Admin Panel (index.html) changes:
+    - Upload now calls addDoc() → creates a NEW document in 'playlist'.
+    - onSnapshot() listener renders all playlist docs as cards in real time.
+    - Delete button: deleteObject(Storage) first, then deleteDoc(Firestore).
+      If Storage says object-not-found, still cleans the Firestore doc.
+      If Storage fails for any other reason, stops to avoid orphaned data.
+
+  TV App (MainActivity.kt) changes:
+    - Firestore listener changed from single-document to collection listener.
+    - On each snapshot:
+        a) DocumentChange.Type.REMOVED docs → evicted from SimpleCache.
+        b) All current URLs extracted and passed to rebuildPlaylist().
+    - rebuildPlaylist() calls player.setMediaItems() preserving the currently
+      playing video and seek position if it still exists in the new list.
+
+Step 8 — UI Overhaul + Smart Local Storage (rev 3)
+---------------------------------------------------
+  Admin Panel (index.html):
+    - Full glassmorphism redesign:
+        * Body: deep navy (#03050f) + CSS radial gradient glows
+        * Cards: backdrop-filter:blur(24px), bg rgba(255,255,255,0.04),
+                 border rgba(255,255,255,0.08) — brightens on hover
+        * Progress bar: indigo→purple gradient fill
+        * Drop zone: animated glow border on hover
+    - Delete confirm modal: custom inline modal (no browser confirm()).
+        Pressing Escape or clicking the backdrop also dismisses it.
+    - Preview modal: full-screen <video> overlay with controls.
+        Pressing Escape or clicking backdrop closes and pauses it.
+
+  TV App — Loading Overlay (activity_main.xml):
+    - Semi-transparent black FrameLayout layered above PlayerView.
+    - Contains a white ProgressBar + "Syncing…" text centered on screen.
+    - Visible on startup, fades out (700ms alpha animation) when ExoPlayer
+      fires onIsPlayingChanged(true).
+
+  TV App — SmartDisplay_Media local storage (MainActivity.kt):
+    - Folder: getExternalFilesDir(null)/SmartDisplay_Media
+      No WRITE_EXTERNAL_STORAGE permission needed on API 29+.
+    - Filename convention: {firestoreDocId}.mp4
+      The docId is used as the filename so any file can be matched to
+      its Firestore document unambiguously (no name collisions).
+
+  Startup flow:
+    1. Scan SmartDisplay_Media/ for *.mp4 files (excluding *.tmp).
+    2. Build MediaItems from local file URIs and start playback immediately.
+    3. Simultaneously start Firestore listener in parallel.
+    4. Once Firestore fires, rebuild the playlist in timestamp order,
+       preferring local files over URLs.
+
+  Firestore DocumentChange handling:
+    ADDED    → downloadVideo(docId, url): check if {docId}.mp4 exists;
+               if not, check free space (skip if < 200 MB), then download
+               via HttpURLConnection to a .tmp file, rename on completion.
+               After download: rebuild playlist on main thread so the
+               URL item is replaced by the local file URI.
+    REMOVED  → cancel in-progress download job, delete {docId}.mp4 + .tmp.
+    MODIFIED → delete old file, re-download with new URL.
+
+  Offline priority:
+    rebuildPlaylist() always checks File(mediaDir, "$docId.mp4").exists()
+    before deciding the MediaItem URI. If the file is local, no network
+    traffic occurs. If network drops mid-playback of a URL-based item,
+    onPlayerError skips to the next item — which may already be local.
+
+  New dependency added to app/build.gradle:
+    org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1
+
+Step 9 — Duplicate Video Check (rev 4)
+---------------------------------------
+  Feature: Before any upload begins, the Admin Panel now queries Firestore to
+           detect whether a video with the same filename already exists in the
+           playlist, and asks the user to confirm before proceeding.
+
+  Files changed:
+    index.html only — no Android / Kotlin changes required.
+
+  New Firestore SDK functions imported:
+    getDocs   — one-shot read (not a live listener)
+    where     — field-equality filter
+
+  Flow added to uploadBtn click handler:
+    1. Button is disabled and label changes to "Checking…".
+    2. showStatus("info", "Checking for duplicates…") gives immediate feedback.
+    3. getDocs(query(collection(db, "playlist"), where("name", "==", file.name)))
+       runs a case-sensitive equality query against the 'name' field.
+    4a. No match → startUpload(file) is called immediately (no modal shown).
+    4b. Match found → "Duplicate Video Detected" modal is shown with the body:
+         "A video named '<filename>' already exists in the playlist.
+          Upload it again?"
+        Buttons:
+          "No, Cancel"       → clears state, shows "Upload cancelled." status.
+          "Yes, Upload Anyway" → calls startUpload(file) and proceeds normally.
+    5. If the Firestore query itself fails, an error status is shown and the
+       button is re-enabled so the user can try again.
+
+  Upload logic extracted:
+    The original inline upload code was moved into startUpload(file) so both
+    the "no duplicate" fast path and the "confirmed anyway" path share one
+    implementation with no duplication.
+
+  Duplicate modal design:
+    - Same glass card + modal-backdrop pattern as the existing delete modal.
+    - Indigo accent colours (rgba(99,102,241,…)) instead of red.
+    - Warning triangle SVG icon.
+    - Escape key and backdrop click both trigger "No, Cancel".
+
+  Firestore index note:
+    The where("name", "==", …) query is a simple single-field equality filter.
+    Firestore does NOT require a composite index for this — it works with the
+    default indexes. No action needed in the Firebase Console.
+
+Step 10 — Batch Upload with Per-File Progress (rev 5)
+------------------------------------------------------
+  Feature: The Admin Panel now supports selecting and uploading multiple MP4
+           files in a single session, with individual progress tracking per
+           file and graceful per-file error handling.
+
+  Files changed:
+    index.html only — no Android / Kotlin changes required.
+
+  Key state variables:
+    selectedFiles  (Array<File>)  — files chosen via the drop zone, held in a
+                                    mutable JS array (FileList is read-only).
+                                    Deduplicated by name + size on each change event.
+    uploadQueue    (Array<File>)  — subset of selectedFiles confirmed for upload
+                                    after the duplicate-check phase completes.
+    duplicateModalResolver (Function | null)
+                                 — Promise resolver that pauses the duplicate-
+                                    check loop while the user responds to the modal.
+
+  File selection flow:
+    1. <input type="file" accept="video/mp4" multiple> collects files.
+    2. fileInput.value is reset to "" after each change so the same file can
+       be re-selected.
+    3. renderFileList() renders one .video-card row per file (name + MB size)
+       with a ✕ button to remove individual files before uploading.
+    4. The upload button is disabled whenever selectedFiles is empty.
+
+  Duplicate-check + queue-building flow (uploadBtn click):
+    1. Button is disabled; btnLabel changes to "Checking…".
+    2. For each file in selectedFiles, getDocs() queries Firestore for a
+       matching 'name' field (same query as rev 4).
+    3. No match → file pushed directly to uploadQueue.
+       Match found → showDuplicateModalForFile(file) returns a Promise that
+       resolves to true (Yes, Upload Anyway) or false (No, Skip) based on
+       which button the user clicks. The loop awaits this Promise before
+       moving to the next file, effectively pausing iteration.
+    4. Firestore query error → error shown in #status, file skipped, loop
+       continues.
+    5. After all files are checked: if uploadQueue is empty, button is
+       re-enabled and "No files queued" info is shown. Otherwise,
+       processQueue() is called.
+
+  Sequential upload processing (processQueue):
+    - One <div id="batchProgressList"> holds one .video-card progress row per
+      queued file.
+    - Each row contains: a status icon (clock → spinner → ✓ / ✗), filename,
+      file size, an inline error line (hidden until needed), a per-file
+      progress bar using the existing .progress-fill CSS class, and a % label.
+    - Uploads are processed one at a time in a for…of loop. Promise.all is
+      intentionally NOT used to avoid concurrent Firebase Storage writes.
+    - uploadOneFile(file, row) wraps uploadBytesResumable in a Promise:
+        * progress event → updates that file's bar and % label only.
+        * error event → rejects the Promise.
+        * complete event → calls getDownloadURL + addDoc (own Firestore doc),
+          then resolves. If addDoc throws, the Promise rejects.
+    - On reject: setRowStatus(row, "failed", err.message) marks the row with
+      a red ✗ and shows the error inline. The loop continues to the next file.
+    - On resolve: setRowStatus(row, "done") shows the green ✓.
+
+  Post-batch cleanup:
+    - uploadQueue and selectedFiles are cleared; fileInput.value reset;
+      the file list div and button label reset to their initial state.
+    - A "Clear" button appears inside batchProgressList so the user can
+      dismiss the results at their own pace.
+    - A summary status message is shown: e.g.
+        success → "✓ 3 of 3 files uploaded. TV will update in seconds."
+        partial → "✓ 2 of 3 uploaded. 1 failed — see details above."
+        all fail → "✗ All 3 files failed to upload."
+
+  Firestore / Storage unchanged:
+    Each file still gets its own document in the 'playlist' collection with
+    url, name, and timestamp fields, written by addDoc() after that file's
+    Storage upload completes — no batch writes, no transactions.
+
+Step 7 — Media3 Dependency Corrections (rev 2)
+-----------------------------------------------
+  Problem: media3-datasource-cache:1.3.1 and 1.3.0 failed to resolve in
+           this build environment, blocking the entire build.
+
+  Resolution:
+    - Removed: media3-datasource-cache (SimpleCache, CacheDataSource)
+    - Removed: all SimpleCache / CacheDataSource / StandaloneDatabaseProvider
+               code from MainActivity.kt
+    - All media3 versions pinned to 1.3.0 (stable)
+
+  Final dependency list in app/build.gradle:
+    androidx.media3:media3-common:1.3.0
+    androidx.media3:media3-datasource:1.3.0
+    androidx.media3:media3-database:1.3.0
+    androidx.media3:media3-exoplayer:1.3.0
+    androidx.media3:media3-exoplayer-hls:1.3.0
+    androidx.media3:media3-ui:1.3.0
+
+  Current playback method:
+    ExoPlayer is built with DefaultDataSource.Factory(context) which
+    streams video directly over HTTP/HTTPS on every play.
+    REPEAT_MODE_ALL still applies — the playlist loops continuously.
+    On playback error, the player skips to the next item after 2 s.
+
+  Offline playback note:
+    Without SimpleCache, the TV requires an active internet connection.
+    If connectivity drops mid-playback, ExoPlayer's error handler will
+    skip to the next item and keep retrying. Re-add media3-datasource-cache
+    to restore offline support when the dependency becomes resolvable.
+
+
+────────────────────────────────────────────────────────────────────────────────
+4. SETUP & INSTALLATION
+────────────────────────────────────────────────────────────────────────────────
+
+4A. Firebase Console Setup (do once)
+--------------------------------------
+  1. Go to https://console.firebase.google.com → project "smartaddisplay".
+
+  2. Firestore Database
+     - Create database in production mode.
+     - Create collection "playlist" (can be empty initially).
+     - Set rules (Firestore → Rules tab):
+
+       rules_version = '2';
+       service cloud.firestore {
+         match /databases/{database}/documents {
+           match /playlist/{docId} {
+             allow read, write: if true;
+           }
+         }
+       }
+
+       NOTE: Tighten these rules with authentication before going to
+             production. The above allows unrestricted public access.
+
+  3. Firebase Storage
+     - Enable Storage.
+     - Set rules (Storage → Rules tab):
+
+       rules_version = '2';
+       service firebase.storage {
+         match /b/{bucket}/o {
+           match /videos/{fileName} {
+             allow read: if true;
+             allow write, delete: if true;
+           }
+         }
+       }
+
+       NOTE: Same caveat — lock down with auth for production use.
+
+  4. Download google-services.json
+     - Firebase Console → Project Settings → Your apps → Android app
+       (com.smartad.display) → Download google-services.json
+     - Place it at: C:\TV\app\google-services.json
+
+4B. Building & Installing the Android App
+------------------------------------------
+  Prerequisites:
+    - Android Studio (latest stable recommended)
+    - JDK 17 or higher
+    - google-services.json in app/ folder (see 4A above)
+
+  Steps:
+    1. Open Android Studio → File → Open → select C:\TV
+    2. Wait for Gradle sync to complete (~2 min on first run, downloads deps)
+    3. Connect device via USB:
+         Phone  : Settings → About Phone → tap Build Number 7x → enable
+                  Developer Options → USB Debugging → Allow on popup
+         TV/box : Same path, or use ADB over WiFi
+    4. Verify device detected:
+         Run in PowerShell:
+           & "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" devices
+         Should show:  <serial>   device
+    5. Select device in Android Studio toolbar dropdown.
+    6. Press ▶ Run (or Shift+F10).
+
+  Launcher visibility:
+    - Phone home screen : app appears because LAUNCHER intent-filter is present
+                          and android.software.leanback required="false"
+    - TV launcher row   : app appears because LEANBACK_LAUNCHER intent-filter
+                          is present and android:banner is set
+    - TV "Apps" section : uses the @mipmap/ic_launcher icon
+
+4C. Using the Admin Panel
+--------------------------
+  1. Open C:\TV\index.html directly in any modern browser (Chrome recommended).
+     No web server needed — all Firebase calls go over HTTPS.
+
+  2. Upload one or more videos (batch upload):
+     - Click the drop zone → select one or multiple MP4 files.
+     - The selected files appear as a list below the drop zone with their
+       file sizes. Click ✕ on any row to remove a file before uploading.
+     - Click "Upload & Add to Playlist".
+     - The panel checks Firestore for duplicates one file at a time:
+         * No match   → file is queued automatically.
+         * Match found → "Duplicate Video Detected" modal appears for that
+           specific file. Choose "Yes, Upload Anyway" to queue it or
+           "No, Skip" to skip it. The check then moves to the next file.
+     - After all checks, the panel uploads the queued files sequentially.
+       Each file shows its own progress bar, percentage, and a status icon:
+         ⏱ waiting  →  ↻ uploading  →  ✓ done  or  ✗ failed
+     - If a file fails, the error is shown in its row and the next file
+       continues uploading — the whole batch is not aborted.
+     - On completion, a summary status appears (e.g. "✓ 3 of 4 uploaded.
+       1 failed.") and a "Clear" button lets you dismiss the progress list.
+     - Each successfully uploaded file gets its own document in the Firestore
+       'playlist' collection with its URL and timestamp.
+     - The TV's Firestore listener fires and adds each new video to the queue.
+
+  3. View the playlist:
+     - The "Playlist" section below the upload card updates in real time.
+     - Each card shows the video number, filename, and storage URL.
+
+  4. Delete a video:
+     - Hover over a playlist card → trash icon appears on the right.
+     - Click trash → confirm dialog.
+     - The file is deleted from Firebase Storage first.
+     - Then the Firestore document is deleted.
+     - The TV removes the video from the ExoPlayer queue automatically.
+     - The 500 MB local cache on the TV is also evicted for that URL.
+
+
+────────────────────────────────────────────────────────────────────────────────
+5. MAINTENANCE
+────────────────────────────────────────────────────────────────────────────────
+
+Changing the Playback Repeat Mode
+----------------------------------
+  File    : MainActivity.kt → initPlayer()
+  Line    : exoPlayer.repeatMode = Player.REPEAT_MODE_ALL
+
+  Options:
+    Player.REPEAT_MODE_OFF   — plays through the list once then stops
+    Player.REPEAT_MODE_ONE   — loops the current video forever
+    Player.REPEAT_MODE_ALL   — loops the entire playlist forever (current)
+
+Changing the Firestore Collection Name
+----------------------------------------
+  If you rename 'playlist' to something else, update in FOUR places:
+    1. index.html       — collection("playlist") in onSnapshot query
+    2. index.html       — collection("playlist") in addDoc call
+    3. index.html       — doc(db, "playlist", docId) in deleteDoc call
+    4. index.html       — collection("playlist") in duplicate-check getDocs query
+    5. MainActivity.kt  — .collection("playlist") in initFirestore()
+
+Changing the Storage Folder
+-----------------------------
+  File    : index.html → uploadBtn click handler
+  Line    : ref(storage, `videos/${Date.now()}_${file.name}`)
+  Change "videos/" to any folder name. Keep the timestamp prefix to
+  prevent collisions.
+
+Adding New Fields to Playlist Documents
+-----------------------------------------
+  1. Add the field in index.html → addDoc() call:
+       await addDoc(collection(db, "playlist"), {
+         url:       downloadURL,
+         name:      file.name,
+         timestamp: serverTimestamp(),
+         category:  "promo"           // example new field
+       });
+
+  2. Read the field in MainActivity.kt → initFirestore() snapshot handler:
+       val category = it.getString("category")
+
+Updating Firebase Credentials
+-------------------------------
+  Web (Admin Panel) : edit the firebaseConfig object in index.html lines 91-98.
+  Android app       : replace app/google-services.json — no Kotlin changes needed.
+
+  Both must point to the same Firebase project or real-time sync will break.
+
+Updating Library Versions
+--------------------------
+  File: app/build.gradle
+
+  ExoPlayer/Media3:
+    def media3_version = "1.3.1"   ← change this one line for all Media3 libs
+
+  Firebase:
+    implementation platform('com.google.firebase:firebase-bom:33.1.2')
+    ← bump the BOM version; individual firebase libs inherit the new version
+
+  AGP (Android Gradle Plugin):
+    build.gradle (project-level) → id 'com.android.application' version '8.6.0'
+
+  Gradle Wrapper:
+    gradle/wrapper/gradle-wrapper.properties → distributionUrl
+    AGP 8.6.0 requires Gradle 8.9 minimum.
+
+Checking for Build Errors
+--------------------------
+  From PowerShell in C:\TV:
+    .\gradlew.bat :app:assembleDebug --dry-run   (fast — only resolves graph)
+    .\gradlew.bat :app:assembleDebug             (full compile + APK output)
+
+  APK output location after full build:
+    C:\TV\app\build\outputs\apk\debug\app-debug.apk
+
+
+────────────────────────────────────────────────────────────────────────────────
+6. FILE STRUCTURE REFERENCE
+────────────────────────────────────────────────────────────────────────────────
+
+C:\TV\
+├── index.html                          Web Admin Panel
+├── PROJECT_SETUP_GUIDE.txt             This file
+├── build.gradle                        Project-level: AGP + Kotlin + GMS plugins
+├── settings.gradle                     Module declaration + repository config
+├── gradle.properties                   JVM args, AndroidX flag
+├── gradlew.bat                         Windows Gradle wrapper script
+├── gradle\wrapper\
+│   ├── gradle-wrapper.jar              Gradle bootstrap binary
+│   └── gradle-wrapper.properties      Points to Gradle 8.9 distribution
+└── app\
+    ├── build.gradle                    App-level: deps, namespace, SDK versions
+    ├── google-services.json            Firebase credentials (NOT committed to git)
+    ├── proguard-rules.pro              ProGuard keep rules for Firebase + Media3
+    └── src\main\
+        ├── AndroidManifest.xml         Permissions, features, activity config
+        ├── java\com\smartad\display\
+        │   └── MainActivity.kt         All app logic
+        └── res\
+            ├── layout\
+            │   └── activity_main.xml   Full-screen PlayerView, no controls
+            ├── drawable\
+            │   ├── ic_launcher_background.xml
+            │   ├── ic_launcher_foreground.xml
+            │   └── tv_banner.xml       TV launcher banner (320×180 dp)
+            ├── mipmap-anydpi-v26\
+            │   └── ic_launcher.xml     Adaptive icon (API 26+)
+            ├── mipmap-{mdpi,hdpi,xhdpi,xxhdpi,xxxhdpi}\
+            │   └── ic_launcher.xml     Legacy layer-list icons
+            └── values\
+                ├── strings.xml
+                ├── colors.xml
+                └── themes.xml          Theme.TVApp + Theme.TVApp.Fullscreen
+
+
+────────────────────────────────────────────────────────────────────────────────
+END OF DOCUMENT
+================================================================================

@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SmartAdDisplay — Admin Panel</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { darkMode: 'class' };</script>
+  <style>
+    /* ── Animated gradient background ───────────────────────────────────────── */
+    body {
+      background-color: #03050f;
+      background-image:
+        radial-gradient(ellipse 80% 60% at 10% 10%,  rgba(99, 102, 241, 0.12) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 50% at 90% 90%,  rgba(139, 92, 246, 0.10) 0%, transparent 60%),
+        radial-gradient(ellipse 40% 40% at 50% 50%,  rgba(59,  130, 246, 0.05) 0%, transparent 70%);
+    }
+
+    /* ── Glassmorphism card ──────────────────────────────────────────────────── */
+    .glass {
+      background: rgba(255, 255, 255, 0.04);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.06);
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .glass:hover {
+      border-color: rgba(255, 255, 255, 0.14);
+      box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(99,102,241,0.15), inset 0 1px 0 rgba(255,255,255,0.08);
+    }
+
+    /* ── Video card row ──────────────────────────────────────────────────────── */
+    .video-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+    }
+    .video-card:hover {
+      background: rgba(255, 255, 255, 0.07);
+      border-color: rgba(255, 255, 255, 0.12);
+      box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+    }
+
+    /* ── Drop zone ───────────────────────────────────────────────────────────── */
+    .drop-zone {
+      border: 1.5px dashed rgba(255, 255, 255, 0.14);
+      background: rgba(255, 255, 255, 0.02);
+      transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+    }
+    .drop-zone:hover {
+      border-color: rgba(99, 102, 241, 0.6);
+      background: rgba(99, 102, 241, 0.06);
+      box-shadow: 0 0 0 3px rgba(99,102,241,0.08);
+    }
+
+    /* ── Upload button glow ──────────────────────────────────────────────────── */
+    .btn-primary:not(:disabled):hover {
+      box-shadow: 0 0 20px rgba(99, 102, 241, 0.4);
+    }
+
+    /* ── Progress bar gradient ───────────────────────────────────────────────── */
+    .progress-fill {
+      background: linear-gradient(90deg, #6366f1 0%, #8b5cf6 100%);
+    }
+
+    /* ── Scrollbar ───────────────────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+    /* ── Modal backdrop blur ─────────────────────────────────────────────────── */
+    .modal-backdrop {
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+  </style>
+</head>
+
+<body class="dark min-h-screen py-8 px-4">
+
+  <div class="max-w-2xl mx-auto space-y-5">
+
+    <!-- ── Header ─────────────────────────────────────────────────────────────── -->
+    <div class="text-center space-y-2 pt-2 pb-1">
+      <div class="inline-flex items-center justify-center w-13 h-13 rounded-2xl mb-1"
+        style="background:rgba(99,102,241,0.15); border:1px solid rgba(99,102,241,0.3);">
+        <svg class="w-6 h-6 text-indigo-400" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M6 20.25h12m-7.5-3v3m3-3v3m-10.125-3h17.25c.621 0 1.125-.504 1.125-1.125V4.875C21.75 4.254 21.246 3.75 20.625 3.75H3.375c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125z" />
+        </svg>
+      </div>
+      <h1 class="text-2xl font-bold text-white tracking-tight">SmartAdDisplay</h1>
+      <p class="text-sm" style="color:rgba(255,255,255,0.4)">Admin Panel · Changes push live to the TV instantly</p>
+    </div>
+
+    <!-- ── Upload Card ─────────────────────────────────────────────────────────── -->
+    <div class="glass rounded-2xl p-6 space-y-4">
+
+      <h2 class="text-sm font-semibold flex items-center gap-2" style="color:rgba(255,255,255,0.8)">
+        <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
+        </svg>
+        Upload New Video
+      </h2>
+
+      <!-- Drop zone -->
+      <label id="dropZone" class="drop-zone flex flex-col items-center justify-center w-full h-32 rounded-xl cursor-pointer group">
+        <svg class="w-7 h-7 mb-2 transition-colors duration-200"
+          style="color:rgba(255,255,255,0.2)"
+          fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
+        </svg>
+        <span id="fileLabel" class="text-sm px-4 text-center truncate max-w-full transition-colors duration-200"
+          style="color:rgba(255,255,255,0.35)">Click to browse or drop files here</span>
+        <span class="text-xs mt-1" style="color:rgba(255,255,255,0.18)">MP4 only · multiple files supported</span>
+        <input id="fileInput" type="file" accept="video/mp4" multiple class="hidden" />
+      </label>
+
+      <!-- Selected file list (populated dynamically) -->
+      <div id="fileList" class="hidden space-y-1.5"></div>
+
+      <!-- Upload button -->
+      <button id="uploadBtn" disabled
+        class="btn-primary w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl transition-all duration-200 flex items-center justify-center gap-2">
+        <svg id="btnIcon" class="w-4 h-4 hidden animate-spin" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+        </svg>
+        <span id="btnLabel">Upload &amp; Add to Playlist</span>
+      </button>
+
+      <!-- Batch upload progress list (populated dynamically) -->
+      <div id="batchProgressList" class="hidden space-y-2"></div>
+
+      <!-- Status message -->
+      <div id="status" class="hidden rounded-xl px-4 py-3 text-sm font-medium leading-relaxed"></div>
+
+    </div>
+
+    <!-- ── Playlist Card ────────────────────────────────────────────────────────── -->
+    <div class="glass rounded-2xl p-6 space-y-4">
+
+      <div class="flex items-center justify-between">
+        <h2 class="text-sm font-semibold flex items-center gap-2" style="color:rgba(255,255,255,0.8)">
+          <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z"/>
+          </svg>
+          Playlist
+        </h2>
+        <span id="videoCount" class="text-xs px-2.5 py-1 rounded-full"
+          style="color:rgba(255,255,255,0.35); background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08)">
+          0 videos
+        </span>
+      </div>
+
+      <!-- Loading state -->
+      <div id="playlistLoading" class="flex items-center justify-center py-10 gap-2" style="color:rgba(255,255,255,0.25)">
+        <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+        </svg>
+        <span class="text-sm">Loading playlist…</span>
+      </div>
+
+      <!-- Empty state -->
+      <div id="playlistEmpty" class="hidden flex-col items-center justify-center py-10 text-center space-y-3">
+        <div class="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto"
+          style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.06)">
+          <svg class="w-5 h-5" style="color:rgba(255,255,255,0.15)" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z"/>
+          </svg>
+        </div>
+        <p class="text-sm" style="color:rgba(255,255,255,0.25)">No videos yet.<br/>Upload one above to get started.</p>
+      </div>
+
+      <!-- Video list -->
+      <div id="videoList" class="hidden space-y-2"></div>
+
+    </div>
+
+    <p class="text-center text-xs pb-4" style="color:rgba(255,255,255,0.12)">
+      SmartAdDisplay &middot; Firebase powered
+    </p>
+
+  </div>
+
+  <!-- ── Delete Confirm Modal ──────────────────────────────────────────────────── -->
+  <div id="deleteModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div id="deleteModalBackdrop" class="modal-backdrop absolute inset-0"></div>
+    <div class="glass relative rounded-2xl p-6 w-full max-w-sm space-y-4 z-10"
+      style="border-color:rgba(255,80,80,0.2)">
+
+      <div class="flex items-start gap-3">
+        <div class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
+          style="background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.25)">
+          <svg class="w-4 h-4 text-red-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/>
+          </svg>
+        </div>
+        <div>
+          <h3 class="text-white font-semibold text-base">Delete Video?</h3>
+          <p id="deleteModalName" class="text-sm mt-1" style="color:rgba(255,255,255,0.45)">
+            This will permanently remove the file from Firebase Storage and the playlist.
+          </p>
+        </div>
+      </div>
+
+      <div class="flex gap-2.5 pt-1">
+        <button id="cancelDeleteBtn"
+          class="flex-1 py-2.5 rounded-xl text-sm font-medium transition-all duration-150"
+          style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:rgba(255,255,255,0.7);"
+          onmouseover="this.style.background='rgba(255,255,255,0.10)'"
+          onmouseout="this.style.background='rgba(255,255,255,0.06)'">
+          Cancel
+        </button>
+        <button id="confirmDeleteBtn"
+          class="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-semibold transition-all duration-150"
+          style="box-shadow:0 0 0 0 rgba(239,68,68,0);"
+          onmouseover="this.style.boxShadow='0 0 16px rgba(239,68,68,0.35)'"
+          onmouseout="this.style.boxShadow='0 0 0 0 rgba(239,68,68,0)'">
+          Delete
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Duplicate Video Modal ────────────────────────────────────────────────── -->
+  <div id="duplicateModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div id="duplicateModalBackdrop" class="modal-backdrop absolute inset-0"></div>
+    <div class="glass relative rounded-2xl p-6 w-full max-w-sm space-y-4 z-10"
+      style="border-color:rgba(99,102,241,0.25)">
+
+      <div class="flex items-start gap-3">
+        <div class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
+          style="background:rgba(99,102,241,0.15); border:1px solid rgba(99,102,241,0.3)">
+          <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
+          </svg>
+        </div>
+        <div>
+          <h3 class="text-white font-semibold text-base">Duplicate Video Detected</h3>
+          <p id="duplicateModalBody" class="text-sm mt-1" style="color:rgba(255,255,255,0.45)"></p>
+        </div>
+      </div>
+
+      <div class="flex gap-2.5 pt-1">
+        <button id="cancelDuplicateBtn"
+          class="flex-1 py-2.5 rounded-xl text-sm font-medium transition-all duration-150"
+          style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:rgba(255,255,255,0.7);"
+          onmouseover="this.style.background='rgba(255,255,255,0.10)'"
+          onmouseout="this.style.background='rgba(255,255,255,0.06)'">
+          No, Skip
+        </button>
+        <button id="confirmDuplicateBtn"
+          class="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-all duration-150"
+          style="box-shadow:0 0 0 0 rgba(99,102,241,0);"
+          onmouseover="this.style.boxShadow='0 0 16px rgba(99,102,241,0.35)'"
+          onmouseout="this.style.boxShadow='0 0 0 0 rgba(99,102,241,0)'">
+          Yes, Upload Anyway
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Video Preview Modal ───────────────────────────────────────────────────── -->
+  <div id="previewModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div id="previewModalBackdrop" class="modal-backdrop absolute inset-0"></div>
+    <div class="relative w-full max-w-4xl z-10 space-y-3">
+
+      <!-- Top bar -->
+      <div class="flex items-center justify-between px-1">
+        <p id="previewTitle" class="text-sm font-medium truncate max-w-xs" style="color:rgba(255,255,255,0.6)"></p>
+        <button id="closePreviewBtn"
+          class="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg transition-all"
+          style="color:rgba(255,255,255,0.5); background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1)"
+          onmouseover="this.style.color='rgba(255,255,255,0.9)'; this.style.background='rgba(255,255,255,0.12)'"
+          onmouseout="this.style.color='rgba(255,255,255,0.5)'; this.style.background='rgba(255,255,255,0.06)'">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+          Close
+        </button>
+      </div>
+
+      <!-- Video element -->
+      <video id="previewVideo" controls
+        class="w-full rounded-2xl bg-black"
+        style="max-height:72vh; box-shadow: 0 20px 60px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.06)">
+      </video>
+
+    </div>
+  </div>
+
+  <!-- ── Firebase JS SDK v10 (modular CDN) ─────────────────────────────────────── -->
+  <script type="module">
+    import { initializeApp }
+      from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import {
+      getFirestore, collection, addDoc, deleteDoc, doc,
+      onSnapshot, query, orderBy, serverTimestamp, getDocs, where
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import {
+      getStorage, ref, uploadBytesResumable, getDownloadURL, deleteObject
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+
+    // ── Firebase config ────────────────────────────────────────────────────────
+    const firebaseConfig = {
+      apiKey:            "AIzaSyDEpL4OIsiF9D4D7-F7L4S1G9YvD4R7A",
+      authDomain:        "smartaddisplay.firebaseapp.com",
+      projectId:         "smartaddisplay",
+      storageBucket:     "smartaddisplay.firebasestorage.app",
+      messagingSenderId: "374245781358",
+      appId:             "1:374245781358:web:7f4d506691458739665f87"
+    };
+
+    const app     = initializeApp(firebaseConfig);
+    const db      = getFirestore(app);
+    const storage = getStorage(app);
+
+    // ── DOM refs ───────────────────────────────────────────────────────────────
+    const fileInput         = document.getElementById("fileInput");
+    const fileLabel         = document.getElementById("fileLabel");
+    const fileListDiv       = document.getElementById("fileList");
+    const uploadBtn         = document.getElementById("uploadBtn");
+    const btnIcon           = document.getElementById("btnIcon");
+    const btnLabel          = document.getElementById("btnLabel");
+    const statusDiv         = document.getElementById("status");
+    const batchProgressList = document.getElementById("batchProgressList");
+    const videoCount        = document.getElementById("videoCount");
+    const playlistLoading   = document.getElementById("playlistLoading");
+    const playlistEmpty     = document.getElementById("playlistEmpty");
+    const videoList         = document.getElementById("videoList");
+
+    const deleteModal         = document.getElementById("deleteModal");
+    const deleteModalName     = document.getElementById("deleteModalName");
+    const cancelDeleteBtn     = document.getElementById("cancelDeleteBtn");
+    const confirmDeleteBtn    = document.getElementById("confirmDeleteBtn");
+    const deleteModalBackdrop = document.getElementById("deleteModalBackdrop");
+
+    const duplicateModal         = document.getElementById("duplicateModal");
+    const duplicateModalBody     = document.getElementById("duplicateModalBody");
+    const cancelDuplicateBtn     = document.getElementById("cancelDuplicateBtn");
+    const confirmDuplicateBtn    = document.getElementById("confirmDuplicateBtn");
+    const duplicateModalBackdrop = document.getElementById("duplicateModalBackdrop");
+
+    const previewModal         = document.getElementById("previewModal");
+    const previewVideo         = document.getElementById("previewVideo");
+    const previewTitle         = document.getElementById("previewTitle");
+    const closePreviewBtn      = document.getElementById("closePreviewBtn");
+    const previewModalBackdrop = document.getElementById("previewModalBackdrop");
+
+    // ── Mutable state ──────────────────────────────────────────────────────────
+    let selectedFiles          = [];    // Files chosen via the drop zone
+    let uploadQueue            = [];    // Files confirmed for upload after dup checks
+    let pendingDeleteId        = null;
+    let pendingDeleteUrl       = null;
+    let duplicateModalResolver = null;  // Promise resolver for sequential dup flow
+
+    // ── File selection → build removable preview list ──────────────────────────
+    fileInput.addEventListener("change", () => {
+      Array.from(fileInput.files).forEach(f => {
+        // Deduplicate by name + size so the same file can't be added twice
+        if (!selectedFiles.find(sf => sf.name === f.name && sf.size === f.size)) {
+          selectedFiles.push(f);
+        }
+      });
+      fileInput.value = ""; // reset so the same file can be re-selected later
+      renderFileList();
+      hideStatus();
+    });
+
+    function renderFileList() {
+      if (selectedFiles.length === 0) {
+        fileLabel.textContent = "Click to browse or drop files here";
+        fileLabel.style.color = "rgba(255,255,255,0.35)";
+        fileListDiv.classList.add("hidden");
+        fileListDiv.innerHTML = "";
+        uploadBtn.disabled = true;
+        return;
+      }
+
+      fileLabel.textContent = `${selectedFiles.length} file${selectedFiles.length !== 1 ? "s" : ""} selected`;
+      fileLabel.style.color = "rgba(255,255,255,0.7)";
+      fileListDiv.classList.remove("hidden");
+      fileListDiv.innerHTML = "";
+
+      selectedFiles.forEach((file, idx) => {
+        const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+        const row = document.createElement("div");
+        row.className = "video-card flex items-center gap-3 rounded-xl px-3 py-2";
+        row.innerHTML = `
+          <svg class="w-3.5 h-3.5 shrink-0" style="color:rgba(255,255,255,0.2)"
+            fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.36a1 1 0 01-1.447.893L15 14
+                 M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/>
+          </svg>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm text-white truncate">${escapeHtml(file.name)}</p>
+            <p class="text-xs" style="color:rgba(255,255,255,0.3)">${sizeMB} MB</p>
+          </div>
+          <button class="remove-file-btn w-5 h-5 shrink-0 flex items-center justify-center rounded text-xs transition-colors"
+            data-idx="${idx}"
+            style="color:rgba(255,255,255,0.3)"
+            onmouseover="this.style.color='#f87171'; this.style.background='rgba(239,68,68,0.12)'"
+            onmouseout="this.style.color='rgba(255,255,255,0.3)'; this.style.background='transparent'">✕</button>
+        `;
+        fileListDiv.appendChild(row);
+      });
+
+      fileListDiv.querySelectorAll(".remove-file-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          selectedFiles.splice(parseInt(btn.dataset.idx), 1);
+          renderFileList();
+        });
+      });
+
+      uploadBtn.disabled = false;
+    }
+
+    // ── Duplicate modal — Promise-based so the queue loop can await user input ──
+    function showDuplicateModalForFile(file) {
+      return new Promise((resolve) => {
+        duplicateModalResolver = resolve;
+        duplicateModalBody.textContent =
+          `A video named "${file.name}" already exists in the playlist. Upload it again?`;
+        duplicateModal.classList.remove("hidden");
+      });
+    }
+
+    cancelDuplicateBtn.addEventListener("click", () => {
+      duplicateModal.classList.add("hidden");
+      if (duplicateModalResolver) { duplicateModalResolver(false); duplicateModalResolver = null; }
+    });
+    duplicateModalBackdrop.addEventListener("click", () => cancelDuplicateBtn.click());
+    confirmDuplicateBtn.addEventListener("click", () => {
+      duplicateModal.classList.add("hidden");
+      if (duplicateModalResolver) { duplicateModalResolver(true); duplicateModalResolver = null; }
+    });
+
+    // ── Upload button: duplicate-check every file → build queue → process ──────
+    uploadBtn.addEventListener("click", async () => {
+      if (selectedFiles.length === 0) return;
+
+      uploadBtn.disabled = true;
+      btnIcon.classList.remove("hidden");
+      btnLabel.textContent = "Checking…";
+      hideStatus();
+      uploadQueue = [];
+
+      let checkErrors = 0;
+
+      for (const file of selectedFiles) {
+        try {
+          const dupSnap = await getDocs(
+            query(collection(db, "playlist"), where("name", "==", file.name))
+          );
+          if (dupSnap.empty) {
+            uploadQueue.push(file);
+          } else {
+            // Pause the loop and wait for the user to respond in the modal
+            const confirmed = await showDuplicateModalForFile(file);
+            if (confirmed) uploadQueue.push(file);
+          }
+        } catch (err) {
+          checkErrors++;
+          console.error("Duplicate check error:", err);
+          showStatus("error", `Duplicate check failed for "${file.name}": ${err.message}`);
+        }
+      }
+
+      if (uploadQueue.length === 0) {
+        btnLabel.textContent = "Upload & Add to Playlist";
+        btnIcon.classList.add("hidden");
+        uploadBtn.disabled = false;
+        if (checkErrors === 0) showStatus("info", "No files queued for upload.");
+        return;
+      }
+
+      btnLabel.textContent = "Uploading…";
+      await processQueue([...uploadQueue]);
+    });
+
+    // ── Process the confirmed queue — strictly sequential ──────────────────────
+    async function processQueue(queue) {
+      batchProgressList.classList.remove("hidden");
+      batchProgressList.innerHTML = "";
+
+      // Build one progress row per queued file
+      const rows = queue.map((file) => {
+        const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+        const row = document.createElement("div");
+        row.className = "video-card rounded-xl px-4 py-3 space-y-2";
+        row.innerHTML = `
+          <div class="flex items-center gap-3">
+            <div class="status-icon shrink-0 w-5 h-5 flex items-center justify-center">
+              ${svgIcon("waiting")}
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm text-white truncate">${escapeHtml(file.name)}</p>
+              <p class="text-xs" style="color:rgba(255,255,255,0.3)">${sizeMB} MB</p>
+              <p class="row-error text-xs hidden mt-0.5" style="color:#f87171"></p>
+            </div>
+            <span class="pct-label text-xs font-mono" style="color:rgba(255,255,255,0.35)">—</span>
+          </div>
+          <div class="row-progress-bar hidden w-full rounded-full h-1 overflow-hidden"
+            style="background:rgba(255,255,255,0.08)">
+            <div class="progress-fill h-1 rounded-full transition-all duration-300 ease-out" style="width:0%"></div>
+          </div>
+        `;
+        batchProgressList.appendChild(row);
+        return row;
+      });
+
+      // "Clear" button — hidden until the batch finishes
+      const clearBtn = document.createElement("button");
+      clearBtn.className = "hidden w-full mt-1 py-2 text-xs rounded-xl transition-all duration-150";
+      clearBtn.style.cssText =
+        "color:rgba(255,255,255,0.4); background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08)";
+      clearBtn.textContent = "Clear";
+      clearBtn.addEventListener("mouseover", () => { clearBtn.style.background = "rgba(255,255,255,0.08)"; });
+      clearBtn.addEventListener("mouseout",  () => { clearBtn.style.background = "rgba(255,255,255,0.04)"; });
+      clearBtn.addEventListener("click", () => {
+        batchProgressList.classList.add("hidden");
+        batchProgressList.innerHTML = "";
+      });
+      batchProgressList.appendChild(clearBtn);
+
+      let successCount = 0;
+      let failCount    = 0;
+
+      for (let i = 0; i < queue.length; i++) {
+        setRowStatus(rows[i], "uploading");
+        try {
+          await uploadOneFile(queue[i], rows[i]);
+          setRowStatus(rows[i], "done");
+          successCount++;
+        } catch (err) {
+          setRowStatus(rows[i], "failed", err.message);
+          failCount++;
+          // Continue to the next file — do not abort the batch
+        }
+      }
+
+      // Batch summary
+      const total = queue.length;
+      if (failCount === 0) {
+        showStatus("success",
+          `✓ ${successCount} of ${total} file${total !== 1 ? "s" : ""} uploaded. TV will update in seconds.`);
+      } else if (successCount === 0) {
+        showStatus("error",
+          `✗ All ${total} file${total !== 1 ? "s" : ""} failed to upload.`);
+      } else {
+        showStatus("error",
+          `✓ ${successCount} of ${total} uploaded. ${failCount} failed — see details above.`);
+      }
+
+      // Reset UI — leave batchProgressList visible with the Clear button
+      uploadQueue   = [];
+      selectedFiles = [];
+      fileInput.value = "";
+      fileLabel.textContent = "Click to browse or drop files here";
+      fileLabel.style.color = "rgba(255,255,255,0.35)";
+      fileListDiv.classList.add("hidden");
+      fileListDiv.innerHTML = "";
+      uploadBtn.disabled = true;
+      btnLabel.textContent = "Upload & Add to Playlist";
+      btnIcon.classList.add("hidden");
+      clearBtn.classList.remove("hidden");
+    }
+
+    // ── Upload a single file, update its row, then write the Firestore doc ─────
+    function uploadOneFile(file, row) {
+      return new Promise((resolve, reject) => {
+        const progressBarFill = row.querySelector(".progress-fill");
+        const pctLabel        = row.querySelector(".pct-label");
+        const rowProgressBar  = row.querySelector(".row-progress-bar");
+        rowProgressBar.classList.remove("hidden");
+
+        const storageRef = ref(storage, `videos/${Date.now()}_${file.name}`);
+        const uploadTask = uploadBytesResumable(storageRef, file);
+
+        uploadTask.on("state_changed",
+          (snapshot) => {
+            const pct = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+            progressBarFill.style.width = `${pct}%`;
+            pctLabel.textContent = `${pct}%`;
+          },
+          (error) => reject(error),
+          async () => {
+            try {
+              const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+              await addDoc(collection(db, "playlist"), {
+                url:       downloadURL,
+                name:      file.name,
+                timestamp: serverTimestamp()
+              });
+              progressBarFill.style.width = "100%";
+              pctLabel.textContent = "100%";
+              resolve();
+            } catch (err) {
+              reject(err);
+            }
+          }
+        );
+      });
+    }
+
+    // ── Row status icon SVG strings ────────────────────────────────────────────
+    function svgIcon(status) {
+      if (status === "waiting") return `
+        <svg class="w-4 h-4" style="color:rgba(255,255,255,0.2)"
+          fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M12 6v6h4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>`;
+      if (status === "uploading") return `
+        <svg class="w-4 h-4 animate-spin" style="color:#818cf8" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+        </svg>`;
+      if (status === "done") return `
+        <svg class="w-4 h-4" style="color:#4ade80"
+          fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
+        </svg>`;
+      if (status === "failed") return `
+        <svg class="w-4 h-4" style="color:#f87171"
+          fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>`;
+      return "";
+    }
+
+    function setRowStatus(row, status, errorMsg = "") {
+      row.querySelector(".status-icon").innerHTML = svgIcon(status);
+      if (status === "failed" && errorMsg) {
+        const errorEl = row.querySelector(".row-error");
+        errorEl.textContent = errorMsg;
+        errorEl.classList.remove("hidden");
+      }
+    }
+
+    // ── Real-time playlist listener ────────────────────────────────────────────
+    onSnapshot(
+      query(collection(db, "playlist"), orderBy("timestamp", "asc")),
+      (snapshot) => {
+        playlistLoading.classList.add("hidden");
+        const docs = snapshot.docs;
+        videoCount.textContent = `${docs.length} video${docs.length !== 1 ? "s" : ""}`;
+
+        if (docs.length === 0) {
+          playlistEmpty.classList.remove("hidden");
+          playlistEmpty.classList.add("flex");
+          videoList.classList.add("hidden");
+          videoList.innerHTML = "";
+          return;
+        }
+
+        playlistEmpty.classList.add("hidden");
+        playlistEmpty.classList.remove("flex");
+        videoList.classList.remove("hidden");
+        videoList.innerHTML = "";
+
+        docs.forEach((docSnap, index) => {
+          const data = docSnap.data();
+          const name = escapeHtml(data.name ?? "Untitled");
+          const url  = escapeHtml(data.url  ?? "");
+
+          const card = document.createElement("div");
+          card.className = "video-card flex items-center gap-3 rounded-xl px-4 py-3 group";
+          card.innerHTML = `
+            <span class="text-xs font-mono w-5 shrink-0 text-right select-none"
+              style="color:rgba(255,255,255,0.2)">${index + 1}</span>
+
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-medium text-white truncate">${name}</p>
+              <p class="text-xs truncate mt-0.5" style="color:rgba(255,255,255,0.25)">${url}</p>
+            </div>
+
+            <div class="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+              <!-- Preview -->
+              <button
+                class="preview-btn p-1.5 rounded-lg transition-all duration-150"
+                data-url="${url}" data-name="${name}"
+                title="Preview video"
+                style="color:rgba(255,255,255,0.3)"
+                onmouseover="this.style.color='#818cf8'; this.style.background='rgba(99,102,241,0.15)'"
+                onmouseout="this.style.color='rgba(255,255,255,0.3)'; this.style.background='transparent'">
+                <svg class="w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/>
+                </svg>
+              </button>
+
+              <!-- Delete -->
+              <button
+                class="delete-btn p-1.5 rounded-lg transition-all duration-150"
+                data-id="${docSnap.id}" data-url="${url}" data-name="${name}"
+                title="Delete video"
+                style="color:rgba(255,255,255,0.25)"
+                onmouseover="this.style.color='#f87171'; this.style.background='rgba(239,68,68,0.12)'"
+                onmouseout="this.style.color='rgba(255,255,255,0.25)'; this.style.background='transparent'">
+                <svg class="w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/>
+                </svg>
+              </button>
+            </div>`;
+
+          videoList.appendChild(card);
+        });
+
+        // Attach event handlers after rendering
+        videoList.querySelectorAll(".preview-btn").forEach(btn =>
+          btn.addEventListener("click", () => openPreview(btn.dataset.url, btn.dataset.name))
+        );
+        videoList.querySelectorAll(".delete-btn").forEach(btn =>
+          btn.addEventListener("click", () => promptDelete(btn.dataset.id, btn.dataset.url, btn.dataset.name))
+        );
+      },
+      (error) => {
+        playlistLoading.classList.add("hidden");
+        showStatus("error", `Playlist sync error: ${error.message}`);
+      }
+    );
+
+    // ── Delete modal ───────────────────────────────────────────────────────────
+    function promptDelete(docId, fileUrl, name) {
+      pendingDeleteId  = docId;
+      pendingDeleteUrl = fileUrl;
+      deleteModalName.textContent =
+        `"${name}" will be permanently removed from the playlist and Firebase Storage.`;
+      deleteModal.classList.remove("hidden");
+    }
+
+    cancelDeleteBtn.addEventListener("click", () => {
+      deleteModal.classList.add("hidden");
+      pendingDeleteId = pendingDeleteUrl = null;
+    });
+    deleteModalBackdrop.addEventListener("click", () => cancelDeleteBtn.click());
+
+    confirmDeleteBtn.addEventListener("click", async () => {
+      if (!pendingDeleteId) return;
+      const docId   = pendingDeleteId;
+      const fileUrl = pendingDeleteUrl;
+      deleteModal.classList.add("hidden");
+      pendingDeleteId = pendingDeleteUrl = null;
+      await performDelete(docId, fileUrl);
+    });
+
+    async function performDelete(docId, fileUrl) {
+      try {
+        try {
+          await deleteObject(storageRefFromUrl(fileUrl));
+        } catch (e) {
+          if (e.code !== "storage/object-not-found") throw new Error(`Storage: ${e.message}`);
+          console.warn("File not in Storage — cleaning Firestore doc.");
+        }
+        await deleteDoc(doc(db, "playlist", docId));
+        showStatus("success", "✓ Video deleted from playlist and storage.");
+      } catch (err) {
+        console.error("Delete error:", err);
+        showStatus("error", `Delete failed: ${err.message}`);
+      }
+    }
+
+    // ── Preview modal ──────────────────────────────────────────────────────────
+    function openPreview(url, name) {
+      previewVideo.src = url;
+      previewTitle.textContent = name ?? "";
+      previewModal.classList.remove("hidden");
+      previewVideo.play().catch(() => {});
+    }
+
+    function closePreview() {
+      previewModal.classList.add("hidden");
+      previewVideo.pause();
+      previewVideo.src = "";
+    }
+
+    closePreviewBtn.addEventListener("click", closePreview);
+    previewModalBackdrop.addEventListener("click", closePreview);
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        if (!previewModal.classList.contains("hidden"))   closePreview();
+        if (!deleteModal.classList.contains("hidden"))    cancelDeleteBtn.click();
+        if (!duplicateModal.classList.contains("hidden")) cancelDuplicateBtn.click();
+      }
+    });
+
+    // ── Helpers ────────────────────────────────────────────────────────────────
+    function storageRefFromUrl(downloadUrl) {
+      const url   = new URL(downloadUrl);
+      const match = url.pathname.match(/\/o\/(.+)/);
+      if (!match) throw new Error(`Cannot parse storage URL: ${downloadUrl}`);
+      return ref(storage, decodeURIComponent(match[1]));
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+
+    function showStatus(type, message) {
+      const s = {
+        info:    "border border-indigo-500/30 text-indigo-300",
+        success: "border border-green-500/30  text-green-300",
+        error:   "border border-red-500/30    text-red-300",
+      };
+      const bg = {
+        info:    "rgba(99,102,241,0.08)",
+        success: "rgba(34,197,94,0.08)",
+        error:   "rgba(239,68,68,0.08)",
+      };
+      statusDiv.className = `rounded-xl px-4 py-3 text-sm font-medium leading-relaxed ${s[type]}`;
+      statusDiv.style.background = bg[type];
+      statusDiv.textContent = message;
+      statusDiv.classList.remove("hidden");
+    }
+
+    function hideStatus() { statusDiv.classList.add("hidden"); }
+  </script>
+
+</body>
+</html>

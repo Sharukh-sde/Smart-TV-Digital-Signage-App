@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Android TV home screen banner (320 x 180 dp).
+    Shown in the "Apps" row on the TV launcher.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Dark background -->
+    <item>
+        <shape>
+            <solid android:color="#1A1A2E" />
+        </shape>
+    </item>
+
+    <!-- Accent left strip -->
+    <item android:right="288dp">
+        <shape>
+            <solid android:color="#6C63FF" />
+        </shape>
+    </item>
+
+    <!-- TV icon centered on the strip -->
+    <item
+        android:top="36dp"
+        android:bottom="36dp"
+        android:left="4dp"
+        android:right="292dp"
+        android:drawable="@drawable/ic_launcher_foreground" />
+
+</layer-list>
